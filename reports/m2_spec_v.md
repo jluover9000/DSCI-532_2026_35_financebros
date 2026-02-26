@@ -28,49 +28,9 @@ This inventory is our implementation checklist for Phase 3+ (inputs → reactive
 
 ---
 
-### Risk & Valuation Metrics Table (Bottom-Left)
-
-- Displays all 7 Magnificent stocks as rows.
-- Columns include:
-  - Ticker  
-  - Date (latest available per ticker)  
-  - Market Cap  
-  - P/E Ratio  
-  - Dividend Yield  
-  - Revenue Growth  
-
-**Behavior:**
-- Table always shows the full 7-row dataset.
-- The row matching `input_ticker` is visually highlighted.
-- Table supports column sorting the stock based on selected metrics.
-- Fundamental metrics are snapshot values and do not change with date range because it always shows the latest value.
-
----
-
-### Risk vs Return Scatter Plot (Top-Right)
-
-- Displays all 7 stocks as points.
-- X-axis: Annualized Volatility (Risk)
-- Y-axis: Annualized Return
-- Values are computed from historical closing price data.
-
-**Behavior:**
-- `input_dates` sets the overall available date range.
-- `input_rr_period` chooses the calculation window used within the selected range:
-  - **Full**: use the entire selected date range
-  - **1Y**: use the most recent 1 year within the selected range
-  - **5Y**: use the most recent 5 years within the selected range
-  - **10Y**: use the most recent 10 years within the selected range (if available)
-- Hover tooltip displays:
-  - Ticker
-  - Annualized Return (%)
-  - Volatility (%)
-- The selected ticker (`input_ticker`) is visually emphasized (larger marker or distinct color).
----
-
 ## 2.3 Reactivity Diagram
 
-```mermaid
+```mermaidS
 flowchart TD
   D[/input_dates/] --> A{{analysis_close}}
   P[/input_rr_period/] --> A{{analysis_close}}
@@ -82,3 +42,51 @@ flowchart TD
   M{{metrics_table_df}} --> G([tbl_stock_metrics])
   T --> G
 ```
+---
+
+## 2.4 Calculation Details
+
+### `analysis_close`
+
+**Inputs:** `input_dates`, `input_rr_period`  
+
+**Transformation:**  
+This reactive calculation first filters the historical closing price dataset to the selected date range (`input_dates`). It then applies the selected risk/return analysis window (`input_rr_period`), which can be Full, 1Y, 5Y, or 10Y.  
+
+If **Full** is selected, the entire filtered date range is used.  
+If 1Y, 5Y, or 10Y is selected, the calculation uses the most recent 1, 5, or 10 years within the selected date range (if sufficient data is available).  
+
+The resulting dataset represents the final price window used for return and volatility calculations.
+
+**Used by:** `risk_return_df`
+
+---
+
+### `risk_return_df`
+
+**Input:** `analysis_close`  
+
+**Transformation:**  
+Using the dataset returned by `analysis_close`, this reactive calculation computes daily percentage returns for each ticker. It then calculates:
+
+- Annualized return  
+- Annualized volatility  
+
+The output is a summary dataframe containing one row per stock with its corresponding risk and return values, based on the selected analysis window.
+
+**Used by:** `plot_risk_return`
+
+---
+
+### `metrics_table_df`
+
+**Inputs:** `input_ticker` (for row highlighting), table sorting controls
+
+**Transformation:**  
+Prepares the snapshot valuation dataset from `metric.csv`, including Ticker, Date, Market Cap, P/E Ratio, Dividend Yield, and Revenue Growth.  
+
+The full 7-row dataset is displayed at all times. The row matching `input_ticker` is visually highlighted. If column sorting is enabled, the table can be reordered based on the selected metric while maintaining the highlighted row.
+
+Fundamental metrics remain constant because only the latest snapshot values are available.
+
+**Used by:** `tbl_stock_metrics`
