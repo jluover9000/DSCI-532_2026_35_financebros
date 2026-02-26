@@ -150,7 +150,8 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             """
             3. Performance Comparison.
             Multi-line chart comparing all portfolio stocks. Selected stock highlighted,
-            others greyed out. Reacts to: dropdown + date range.
+            others greyed out. Hovering over a point in the line will show the date, actual price at the date, and normalized value (tooltip).
+            Reacts to: dropdown + date range.
             Data: All portfolio stocks from close.csv.
             """
 
@@ -162,27 +163,48 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
 
             df = df.set_index("Date")
 
+            raw_prices = df.copy() #for the price/ tooltip
+
             #normalize to 100 at start since the raw prices arent comparable in the same graph, prices are too differentr
             normalized = df / df.iloc[0] * 100
-
             fig = go.Figure()
 
             for col in normalized.columns:
-                if col == ticker:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=normalized.index, y=normalized[col], mode="lines",
-                            name=col, line=dict(width=3)
-                        )
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=normalized.index,
+                        y=normalized[col],
+                        mode="lines",
+                        name=col,
+                        line=dict(
+                            width=3 if col == ticker else 1,
+                            color="green" if col == ticker else "lightgray",
+                        ),
+                        opacity=1 if col == ticker else 0.6,
+
+                        #tooltip hover. I had help from chatgpt to generate the hovertemplate
+                        customdata=raw_prices[col],
+                        hovertemplate=
+                            "<b>%{fullData.name}</b><br>" +
+                            "Date: %{x|%Y-%m-%d}<br>" +
+                            "Price: $%{customdata:.2f}<br>" +
+                            "Performance: %{y:.2f}<extra></extra>"
                     )
-                else:
-                    fig.add_trace(
-                        go.Scatter(
-                            x=normalized.index, y=normalized[col], mode="lines",
-                            name=col, line=dict(color="lightgray", width=1),
-                            opacity=0.6
-                        )
-                    )
+                )            
+
+            # for col in normalized.columns:
+            #     if col == ticker:
+            #         fig.add_trace(
+            #             go.Scatter(
+            #                 x=normalized.index, y=normalized[col], mode="lines",
+            #                 name=col, line=dict(color="green", width=3)))
+            #     else:
+            #         fig.add_trace(
+            #             go.Scatter(
+            #                 x=normalized.index, y=normalized[col], mode="lines",
+            #                 name=col, line=dict(color="lightgray", width=2),
+            #                 opacity=0.6))
 
             fig.update_layout(
                 template="plotly_dark",
