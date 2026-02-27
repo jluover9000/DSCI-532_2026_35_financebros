@@ -21,6 +21,15 @@ body {
     "Helvetica Neue", Arial, "Noto Sans", sans-serif !important;
 }
 
+/* Main container text color */
+.main {
+  color: var(--finviz-text) !important;
+}
+
+.bslib-card-body p {
+  color: var(--finviz-text) !important;
+}
+
 /* Sidebar styling */
 .bslib-sidebar-layout .bslib-sidebar-main,
 .bslib-sidebar-layout .bslib-sidebar {
@@ -33,16 +42,21 @@ body {
 
 /* Card styling - finviz data-dense look */
 .bslib-card {
+  color: var(--finviz-text) !important;
   background-color: var(--finviz-bg-card) !important;
   border: 1px solid var(--finviz-border) !important;
   border-radius: 4px !important;
 }
 
 .bslib-card-header {
-  background-color: rgba(42, 46, 57, 0.5) !important;
+  background-color: rgba(57, 42, 45, 0.5) !important;
   border-bottom: 1px solid var(--finviz-border) !important;
   color: var(--finviz-text) !important;
   font-weight: 600 !important;
+}
+
+div.card-body {
+  overflow: hidden !important;
 }
 
 /* Value boxes and key metrics - bold emphasis */
@@ -83,12 +97,23 @@ table.dataTable thead th {
 }
 
 table.dataTable tbody td {
+  background-color: var(--finviz-bg-card) !important;
   border-bottom: 1px solid var(--finviz-border) !important;
   color: var(--finviz-text) !important;
 }
 
+table.dataTable tbody tr {
+  background-color: var(--finviz-bg-card) !important;
+}
+
 table.dataTable tbody tr:hover {
   background-color: rgba(41, 98, 255, 0.1) !important;
+}
+
+/* Shiny data grid table styling */
+.shiny-data-grid table thead th {
+  background-color: transparent !important;
+  color: var(--finviz-text) !important;
 }
 
 /* Form controls */
@@ -107,17 +132,18 @@ select {
   box-shadow: 0 0 0 0.2rem rgba(41, 98, 255, 0.25) !important;
 }
 
+#dates input {
+  font-size: 0.75rem !important;
+}
+
 /* Labels */
 label {
   color: var(--finviz-text) !important;
 }
 
-/* Plotly chart theming */
-.plotly .modebar-container {
-  display: none !important;
-}
-
+/* plotly styling */
 .js-plotly-plot .plotly .main-svg {
+  color: var(--finviz-text) !important;
   background-color: transparent !important;
 }
 
@@ -137,3 +163,4 @@ label {
 .fw-bold {
   font-variant-numeric: tabular-nums !important;
 }
+
