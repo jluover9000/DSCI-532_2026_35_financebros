@@ -348,15 +348,71 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
     with ui.card(style="width: 100%; height: 360px;"):
         ui.card_header("5. Stock Metrics Table")
 
+        # ✅ Express: layout_columns must be used with "with"
+        with ui.layout_columns(col_widths=[7, 5]):
+            ui.input_select(
+                "metrics_sort_by",
+                "Sort by",
+                choices={
+                    "Market Cap": "MarketCap",
+                    "P/E Ratio": "P/E Ratio",
+                    "Dividend Yield": "DividendYield",
+                    "Revenue Growth": "Revenue Growth",
+                },
+                selected="MarketCap",
+            )
+            ui.input_radio_buttons(
+                "metrics_sort_dir",
+                "Order",
+                choices={"desc": "Desc", "asc": "Asc"},
+                selected="desc",
+                inline=True,
+            )
+
         @render.data_frame
         def render_stock_metrics_table():
-            """
-            5. Stock Metrics Table.
-            Table with Stock name, P/E ratio, Revenue growth, Annual return (placeholder),
-            Volatility (placeholder). Reacts to: dropdown only.
-            Data: metric.csv for P/E and Revenue Growth.
-            """
-            return metric_df
+            df = metric_df.copy()
+
+            if "Unnamed: 0" in df.columns:
+                df = df.drop(columns=["Unnamed: 0"])
+
+            sort_key = input.metrics_sort_by()
+            ascending = (input.metrics_sort_dir() == "asc")
+
+            sort_df = df.copy()
+            for col in ["MarketCap", "P/E Ratio", "DividendYield", "Revenue Growth"]:
+                if col in sort_df.columns:
+                    sort_df[col] = pd.to_numeric(sort_df[col], errors="coerce")
+
+            if sort_key in sort_df.columns:
+                df["_sort_"] = sort_df[sort_key]
+                df = df.sort_values("_sort_", ascending=ascending, na_position="last").drop(columns=["_sort_"])
+
+            df = df.reset_index(drop=True)
+
+            # formatting for display
+            if "MarketCap" in df.columns:
+                mc = pd.to_numeric(df["MarketCap"], errors="coerce") / 1_000_000_000
+                df["MarketCap"] = mc.map(lambda x: "" if pd.isna(x) else f"{x:,.2f}B")
+
+            if "P/E Ratio" in df.columns:
+                pe = pd.to_numeric(df["P/E Ratio"], errors="coerce")
+                df["P/E Ratio"] = pe.map(lambda x: "" if pd.isna(x) else f"{x:.3f}")
+
+            if "DividendYield" in df.columns:
+                dy = pd.to_numeric(df["DividendYield"], errors="coerce") * 100
+                df["DividendYield"] = dy.map(lambda x: "" if pd.isna(x) else f"{x:.3f}%")
+
+            if "Revenue Growth" in df.columns:
+                rg = pd.to_numeric(df["Revenue Growth"], errors="coerce") * 100
+                df["Revenue Growth"] = rg.map(lambda x: "" if pd.isna(x) else f"{x:.3f}%")
+
+            return render.DataGrid(
+                df,
+                width="100%",
+                height="260px",
+                selection_mode="rows",
+            )
 
     # 8. Watchlist Display
     with ui.card():
