@@ -150,11 +150,73 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             """
             3. Performance Comparison.
             Multi-line chart comparing all portfolio stocks. Selected stock highlighted,
-            others greyed out. Reacts to: dropdown + date range.
+            others greyed out. Hovering over a point in the line will show the date, actual price at the date, and normalized value (tooltip).
+            Reacts to: dropdown + date range.
             Data: All portfolio stocks from close.csv.
             """
-            pass
-            return go.Figure()
+
+            df = get_filtered_close().copy()
+            ticker = input.ticker()
+
+            if df.empty:
+                return go.Figure()
+
+            df = df.set_index("Date")
+
+            raw_prices = df.copy() #for the price/ tooltip
+
+            #normalize to 100 at start since the raw prices arent comparable in the same graph, prices are too differentr
+            normalized = df / df.iloc[0] * 100
+            fig = go.Figure()
+
+            for col in normalized.columns:
+
+                fig.add_trace(
+                    go.Scatter(
+                        x=normalized.index,
+                        y=normalized[col],
+                        mode="lines",
+                        name=col,
+                        line=dict(
+                            width=3 if col == ticker else 1,
+                            color="green" if col == ticker else "lightgray",
+                        ),
+                        opacity=1 if col == ticker else 0.6,
+
+                        #tooltip hover. I had help from chatgpt to generate the hovertemplate
+                        customdata=raw_prices[col],
+                        hovertemplate=
+                            "<b>%{fullData.name}</b><br>" +
+                            "Date: %{x|%Y-%m-%d}<br>" +
+                            "Price: $%{customdata:.2f}<br>" +
+                            "Performance: %{y:.2f}<extra></extra>"
+                    )
+                )            
+
+            # for col in normalized.columns:
+            #     if col == ticker:
+            #         fig.add_trace(
+            #             go.Scatter(
+            #                 x=normalized.index, y=normalized[col], mode="lines",
+            #                 name=col, line=dict(color="green", width=3)))
+            #     else:
+            #         fig.add_trace(
+            #             go.Scatter(
+            #                 x=normalized.index, y=normalized[col], mode="lines",
+            #                 name=col, line=dict(color="lightgray", width=2),
+            #                 opacity=0.6))
+
+            fig.update_layout(
+                template="plotly_dark",
+                yaxis_title="Normalized Performance (Base = 100)",
+                xaxis_title="Date",
+                showlegend=True,
+                margin=dict(l=10, r=10, t=10, b=10),
+            )
+
+            return fig
+            # pass
+            # return go.Figure()
 
     # 4. S&P 500 Comparison
     with ui.card(full_screen=True):
@@ -167,8 +229,66 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             Chart comparing selected stock vs SPY (S&P 500). Reacts to: dropdown + date range.
             Data: Selected stock from close.csv + SPY from spy.csv.
             """
-            pass
-            return go.Figure()
+            ticker = input.ticker()
+
+            stock_df = get_filtered_close().copy()
+            dates = input.dates()
+
+            if stock_df.empty:
+                return go.Figure()
+
+            #filter SPY by same date range
+            spy_filtered = spy_df[
+                (spy_df["Date"] >= pd.Timestamp(dates[0])) &
+                (spy_df["Date"] <= pd.Timestamp(dates[1]))
+            ].copy()
+
+            stock_df = stock_df.set_index("Date")
+            spy_filtered = spy_filtered.set_index("Date")
+
+            if ticker not in stock_df.columns:
+                return go.Figure()
+
+            stock_series = stock_df[ticker]
+            spy_series = spy_filtered["SPY"]
+
+            #like 3 above, normalize both to 100 
+            stock_norm = stock_series / stock_series.iloc[0] * 100
+            spy_norm = spy_series / spy_series.iloc[0] * 100
+
+            fig = go.Figure()
+
+            fig.add_trace(
+                go.Scatter(
+                    x=stock_norm.index,
+                    y=stock_norm,
+                    mode="lines",
+                    name=ticker,
+                    line=dict(width=3),
+                )
+            )
+
+            fig.add_trace(
+                go.Scatter(
+                    x=spy_norm.index,
+                    y=spy_norm,
+                    mode="lines",
+                    name="S&P 500 (SPY)",
+                    line=dict(color="orange", width=2),
+                )
+            )
+
+            fig.update_layout(
+                template="plotly_dark",
+                yaxis_title="Normalized Performance (Base = 100)",
+                xaxis_title="Date",
+                margin=dict(l=10, r=10, t=10, b=10),
+            )
+
+            return fig
+
+            # pass
+            # return go.Figure()
 
     # 7. Portfolio Treemap
     with ui.card(full_screen=True):
