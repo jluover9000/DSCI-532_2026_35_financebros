@@ -169,7 +169,7 @@ def risk_return_df():
 # Row 2: 3 (Performance), 4 (S&P 500), 7 (Treemap)
 # Row 3: 5 (Metrics Table), 8 (Watchlist)
 # -----------------------------------------------------------------------------
-with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
+with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
 
     # 1. Current Price Display
     with ui.card():
@@ -203,14 +203,17 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 
     # 6. Risk-Return Scatter Plot
     with ui.card(full_screen=True):
-        ui.card_header("6. Risk-Return Scatshiny run --reload src/app.pyter")
+        ui.card_header("6. Risk-Return Scatter")
 
         @render_plotly
         def rr_plot():
             rr = risk_return_df()
             hi = input.ticker()
 
-            # Empty data: still show % axes
+            X_MIN, X_MAX = 0.0, 1.0
+            Y_MIN, Y_MAX = -0.10, 1.0
+
+            # Empty data: still show % axes (fixed ranges)
             if rr is None or rr.empty:
                 fig = go.Figure()
                 fig.update_layout(
@@ -219,8 +222,26 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
                     margin=dict(l=10, r=10, t=10, b=10),
                     xaxis_title="Annualized Volatility",
                     yaxis_title="Annualized Return",
-                    xaxis=dict(range=[-0.1, 0.1], tickformat=".0%"),
-                    yaxis=dict(range=[-0.1, 0.1], tickformat=".0%"),
+                    xaxis=dict(
+                        range=[X_MIN, X_MAX],
+                        tickformat=".0%",
+                        autorange=False,
+                        fixedrange=True,
+                        tickmode="linear",
+                        tick0=0,
+                        dtick=0.2,
+                        constrain="domain",
+                    ),
+                    yaxis=dict(
+                        range=[Y_MIN, Y_MAX],
+                        tickformat=".0%",
+                        autorange=False,
+                        fixedrange=True,
+                        tickmode="linear",
+                        tick0=-0.1,
+                        dtick=0.2,
+                        constrain="domain",
+                    ),
                     annotations=[
                         dict(
                             text="No data in selected range",
@@ -235,13 +256,24 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
                 )
                 return fig
 
-            # Axis ranges so ALL points are always visible
-            x_rng = _padded_range(rr["AnnVol"], pad_frac=0.15)
-            y_rng = _padded_range(rr["AnnReturn"], pad_frac=0.15)
+            # Ensure numeric + drop bad rows
+            rr = rr.copy()
+            rr["AnnVol"] = pd.to_numeric(rr["AnnVol"], errors="coerce")
+            rr["AnnReturn"] = pd.to_numeric(rr["AnnReturn"], errors="coerce")
+            rr = rr.dropna(subset=["Ticker", "AnnVol", "AnnReturn"])
+
+            # Clamp data to fixed axis bounds so Plotly never auto-expands
+            others = rr[rr["Ticker"] != hi].copy()
+            others["AnnVol"] = others["AnnVol"].clip(X_MIN, X_MAX)
+            others["AnnReturn"] = others["AnnReturn"].clip(Y_MIN, Y_MAX)
+
+            selected = rr[rr["Ticker"] == hi].copy()
+            selected["AnnVol"] = selected["AnnVol"].clip(X_MIN, X_MAX)
+            selected["AnnReturn"] = selected["AnnReturn"].clip(Y_MIN, Y_MAX)
 
             fig = go.Figure()
 
-            others = rr[rr["Ticker"] != hi]
+            # Other tickers
             fig.add_trace(
                 go.Scatter(
                     x=others["AnnVol"],
@@ -255,7 +287,7 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
                 )
             )
 
-            selected = rr[rr["Ticker"] == hi]
+            # Selected ticker (highlight)
             if not selected.empty:
                 fig.add_trace(
                     go.Scatter(
@@ -274,10 +306,29 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
                 template="plotly_dark",
                 height=520,
                 margin=dict(l=10, r=10, t=10, b=10),
+                uirevision="rr_fixed_axes",
                 xaxis_title="Annualized Volatility",
                 yaxis_title="Annualized Return",
-                xaxis=dict(range=list(x_rng), tickformat=".0%", constrain="domain"),
-                yaxis=dict(range=list(y_rng), tickformat=".0%", constrain="domain"),
+                xaxis=dict(
+                    range=[X_MIN, X_MAX],
+                    autorange=False,
+                    fixedrange=True,
+                    tickformat=".0%",
+                    tickmode="linear",
+                    tick0=0,
+                    dtick=0.2,
+                    constrain="domain",
+                ),
+                yaxis=dict(
+                    range=[Y_MIN, Y_MAX],
+                    autorange=False,
+                    fixedrange=True,
+                    tickformat=".0%",
+                    tickmode="linear",
+                    tick0=-0.1,
+                    dtick=0.2,
+                    constrain="domain",
+                ),
             )
             return fig
 
