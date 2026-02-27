@@ -24,8 +24,8 @@ spy_df = pd.read_csv(DATA_DIR / "spy.csv", parse_dates=["Date"])
 wishlist_df = pd.read_csv(DATA_DIR / "wishlist.csv", parse_dates=["Date"])
 
 # Date range from close.csv
-DATE_MIN = close_df["Date"].min()
-DATE_MAX = close_df["Date"].max()
+DATE_MIN = close_df["Date"].min().date()
+DATE_MAX = close_df["Date"].max().date()
 
 # -----------------------------------------------------------------------------
 # Page Setup
@@ -49,6 +49,8 @@ with ui.sidebar():
         end=DATE_MAX,
         min=DATE_MIN,
         max=DATE_MAX,
+        format="yyyy-mm-dd",
+        separator=" - ",
     )
 
 # -----------------------------------------------------------------------------
@@ -91,7 +93,7 @@ def get_selected_stock_series():
 # Row 2: 3 (Performance), 4 (S&P 500), 7 (Treemap)
 # Row 3: 5 (Metrics Table), 8 (Watchlist)
 # -----------------------------------------------------------------------------
-with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
+with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 
     # 1. Current Price Display
     with ui.card():
@@ -139,7 +141,7 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             return go.Figure()
 
 
-with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
+with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 
     # 3. Performance Comparison
     with ui.card(full_screen=True):
@@ -163,9 +165,9 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
 
             df = df.set_index("Date")
 
-            raw_prices = df.copy() #for the price/ tooltip
+            raw_prices = df.copy()  # for the price/ tooltip
 
-            #normalize to 100 at start since the raw prices arent comparable in the same graph, prices are too differentr
+            # normalize to 100 at start since the raw prices arent comparable in the same graph, prices are too differentr
             normalized = df / df.iloc[0] * 100
             fig = go.Figure()
 
@@ -182,16 +184,14 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
                             color="green" if col == ticker else "lightgray",
                         ),
                         opacity=1 if col == ticker else 0.6,
-
-                        #tooltip hover. I had help from chatgpt to generate the hovertemplate
+                        # tooltip hover. I had help from chatgpt to generate the hovertemplate
                         customdata=raw_prices[col],
-                        hovertemplate=
-                            "<b>%{fullData.name}</b><br>" +
-                            "Date: %{x|%Y-%m-%d}<br>" +
-                            "Price: $%{customdata:.2f}<br>" +
-                            "Performance: %{y:.2f}<extra></extra>"
+                        hovertemplate="<b>%{fullData.name}</b><br>"
+                        + "Date: %{x|%Y-%m-%d}<br>"
+                        + "Price: $%{customdata:.2f}<br>"
+                        + "Performance: %{y:.2f}<extra></extra>",
                     )
-                )            
+                )
 
             # for col in normalized.columns:
             #     if col == ticker:
@@ -237,10 +237,10 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             if stock_df.empty:
                 return go.Figure()
 
-            #filter SPY by same date range
+            # filter SPY by same date range
             spy_filtered = spy_df[
-                (spy_df["Date"] >= pd.Timestamp(dates[0])) &
-                (spy_df["Date"] <= pd.Timestamp(dates[1]))
+                (spy_df["Date"] >= pd.Timestamp(dates[0]))
+                & (spy_df["Date"] <= pd.Timestamp(dates[1]))
             ].copy()
 
             stock_df = stock_df.set_index("Date")
@@ -252,7 +252,7 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             stock_series = stock_df[ticker]
             spy_series = spy_filtered["SPY"]
 
-            #like 3 above, normalize both to 100 
+            # like 3 above, normalize both to 100
             stock_norm = stock_series / stock_series.iloc[0] * 100
             spy_norm = spy_series / spy_series.iloc[0] * 100
 
@@ -301,11 +301,48 @@ with ui.layout_columns(col_widths=[1, 1, 1], row_heights="auto"):
             Treemap of portfolio sized by market cap. Selected stock highlighted.
             Reacts to: dropdown only. Data: MarketCap from metric.csv.
             """
-            pass
-            return go.Figure()
+            selected_ticker = input.ticker()
+
+            labels = []
+            values = []
+            text_info = []
+            colors = []
+
+            for _, row in metric_df.iterrows():
+                ticker = str(row["Ticker"])
+                company_name = stocks.get(ticker, ticker)
+                labels.append(f"{ticker}")
+                values.append(row["MarketCap"])
+                text_info.append(f"{company_name}")
+
+                if ticker == selected_ticker:
+                    colors.append("#2962ff")
+                else:
+                    colors.append("#787b86")
+
+            fig = go.Figure(
+                go.Treemap(
+                    labels=labels,
+                    parents=[""] * len(labels),
+                    values=values,
+                    text=text_info,
+                    textposition="middle center",
+                    marker=dict(colors=colors, line=dict(color="#2a2e39", width=2)),
+                    hovertemplate="<b>%{label}</b><br>%{text}<br>Market Cap: $%{value:,.0f}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                paper_bgcolor="#131722",
+                plot_bgcolor="#1e222d",
+                font=dict(color="#d1d4dc", size=14),
+                margin=dict(l=10, r=10, t=10, b=10),
+            )
+
+            return fig
 
 
-with ui.layout_columns(col_widths=[4, 1]):
+with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 
     # 5. Stock Metrics Table
     with ui.card(style="width: 100%; height: 360px;"):
@@ -324,9 +361,7 @@ with ui.layout_columns(col_widths=[4, 1]):
     # 8. Watchlist Display
     with ui.card():
         ui.card_header("8. Watchlist")
-        ui.input_switch(
-            "watchlist_toggle", "Show as $ (dollar) / % (percent)", value=False
-        )
+        ui.input_switch("watchlist_toggle", "Show as $ or %", value=False)
 
         @render.data_frame
         def render_watchlist():
@@ -336,8 +371,63 @@ with ui.layout_columns(col_widths=[4, 1]):
             and Change (colored red/green). Global toggle for percentage vs dollar.
             Reacts to: neither dropdown nor date range.
             """
-            pass
-            return pd.DataFrame()
+            current_prices = wishlist_df.iloc[-1]
+            previous_prices = wishlist_df.iloc[-2]
+
+            watchlist_data = []
+            for ticker in wishlist_dict.keys():
+                current = current_prices[ticker]
+                previous = previous_prices[ticker]
+                dollar_change = current - previous
+                percent_change = (dollar_change / previous) * 100
+
+                if input.watchlist_toggle():
+                    change_value = f"{percent_change:+.2f}%"
+                else:
+                    change_value = f"${dollar_change:+.2f}"
+
+                watchlist_data.append(
+                    {
+                        "Symbol": ticker,
+                        "Change": change_value,
+                    }
+                )
+
+            df = pd.DataFrame(watchlist_data)
+
+            return render.DataTable(
+                df,
+                styles=[
+                    {
+                        "rows": [
+                            i
+                            for i, row in enumerate(watchlist_data)
+                            if "-" not in row["Change"]
+                        ],
+                        "cols": [0, 1],
+                        "style": {
+                            "color": "#44bb70",
+                            "font-weight": "600",
+                            "background-color": "transparent",
+                        },
+                    },
+                    {
+                        "rows": [
+                            i
+                            for i, row in enumerate(watchlist_data)
+                            if "-" in row["Change"]
+                        ],
+                        "cols": [0, 1],
+                        "style": {
+                            "color": "#d62728",
+                            "font-weight": "600",
+                            "background-color": "transparent",
+                        },
+                    },
+                ],
+                filters=False,
+                selection_mode="none",
+            )
 
 
 # -----------------------------------------------------------------------------
