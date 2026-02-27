@@ -204,7 +204,6 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
     # 6. Risk-Return Scatter Plot
     with ui.card(full_screen=True):
         ui.card_header("6. Risk-Return Scatshiny run --reload src/app.pyter")
-        output_widget("rr_plot")
 
         @render_plotly
         def rr_plot():
