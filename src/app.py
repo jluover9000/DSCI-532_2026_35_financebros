@@ -34,6 +34,84 @@ DATE_MAX = close_df["Date"].max().date()
 # -----------------------------------------------------------------------------
 ui.page_opts(title="Magnificent 7 Stock Explorer", fillable=True)
 
+ui.tags.style("""
+/* Finviz-style strip */
+.tickerstrip {
+  display: flex;
+  align-items: stretch;
+  border: 1px solid #2a2e39;
+  border-radius: 10px;
+  overflow: hidden;             /* makes separators look clean */
+  background: #1e222d;
+}
+
+/* Each tile */
+.tickerbox {
+  flex: 1;
+  padding: 10px 10px 8px 10px;
+  min-width: 0;
+  text-align: left;
+}
+
+/* Thin vertical separators between boxes */
+.tickerbox + .tickerbox {
+  border-left: 1px solid #2a2e39;
+}
+
+.tickerbox-ticker {
+  font-weight: 700;
+  font-size: 12px;
+  letter-spacing: 0.04em;
+  color: #d1d4dc;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+/* Price row */
+.tickerbox-price {
+  font-weight: 700;
+  font-size: 16px;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+/* Return row */
+.tickerbox-ret {
+  margin-top: 4px;
+  font-weight: 600;
+  font-size: 12px;
+  line-height: 1.1;
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+}
+
+.ret-pos { color: #44bb70; }
+.ret-neg { color: #d62728; }
+.ret-flat { color: #9aa0a6; }
+
+/* Arrow style */
+.ret-arrow {
+  font-size: 12px;
+  opacity: 0.95;
+}
+
+/* Subtle hover like finviz */
+.tickerbox:hover {
+  background: #232a37;
+}
+
+/* Small screens: allow horizontal scroll instead of wrapping */
+@media (max-width: 900px) {
+  .tickerstrip {
+    overflow-x: auto;
+  }
+  .tickerbox {
+    flex: 0 0 140px;
+  }
+}
+""")
+
 # -----------------------------------------------------------------------------
 # Sidebar - Stock dropdown and date range
 # -----------------------------------------------------------------------------
@@ -187,8 +265,50 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             Uses the most recent price from close.csv regardless of selected date range.
             Data: Last row from close.csv for selected stock.
             """
-            pass
-            return ui.div("—", class_="text-muted")
+            cur = close_df.iloc[-1]
+            prev = close_df.iloc[-2]
+
+            boxes = []
+            for ticker in close_df.columns[1:]:  
+                if ticker not in close_df.columns:
+                    boxes.append(
+                        ui.tags.div(
+                            {"class": "tickerbox"},
+                            ui.tags.div(ticker, class_="tickerbox-ticker"),
+                            ui.tags.div("—", class_="tickerbox-price"),
+                            ui.tags.div("—", class_="tickerbox-ret ret-flat"),
+                        )
+                    )
+                    continue
+
+                current = float(cur[ticker])
+                previous = float(prev[ticker])
+
+                pct = 0.0 if previous == 0 else (current / previous - 1.0) * 100
+
+                if pct > 0.05:
+                    cls = "ret-pos"
+                    arrow = "▲"
+                elif pct < -0.05:
+                    cls = "ret-neg"
+                    arrow = "▼"
+                else:
+                    cls = "ret-flat"
+                    arrow = "•"
+
+                pct_txt = f"{arrow}{pct:.2f}%"
+
+                boxes.append(
+                    ui.tags.div(
+                        {"class": "tickerbox"},
+                        ui.tags.div(ticker, class_="tickerbox-ticker"),
+                        ui.tags.div(f"${current:,.2f}", class_="tickerbox-price"),
+                        ui.tags.div(pct_txt, class_=f"tickerbox-ret {cls}"),
+                    )
+                )
+
+            return ui.tags.div({"class": "tickerstrip"}, *boxes)
+            
 
     # 2. Stock Price Chart
     with ui.card(full_screen=True):
@@ -202,8 +322,78 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             Reacts to: dropdown + date range.
             Data: Filtered close.csv for selected stock and date range.
             """
-            pass
-            return go.Figure()
+            ticker = input.ticker()
+            df = get_filtered_close().copy()
+
+            if df.empty or ticker not in df.columns:
+                fig = go.Figure()
+                fig.update_layout(
+                    template="plotly_dark",
+                    paper_bgcolor="#131722",
+                    plot_bgcolor="#1e222d",
+                    margin=dict(l=10, r=10, t=10, b=10),
+                    annotations=[
+                        dict(
+                            text="No data available for the selected range/ticker.",
+                            x=0.5, y=0.5, xref="paper", yref="paper",
+                            showarrow=False, font=dict(color="#d1d4dc", size=14)
+                        )
+                    ],
+                )
+                return fig
+            
+            df = df.sort_values("Date")
+            x = df["Date"]
+            y = df[ticker].astype(float)
+
+            start_price = float(y.iloc[0])
+            end_price = float(y.iloc[-1])
+            pct_change = (end_price / start_price - 1) * 100 if start_price != 0 else 0.0
+            pct_color = "#44bb70" if pct_change >= 0 else "#d62728"
+
+            fig = go.Figure()
+            fig.add_trace(
+                go.Scatter(
+                    x=x,
+                    y=y,
+                    mode="lines",
+                    name=ticker,
+                    line=dict(color="#2962ff", width=2.5),
+                    hovertemplate="<b>%{x|%Y-%m-%d}</b><br>"
+                                f"{ticker}: $%{{y:.2f}}<extra></extra>",
+                )
+            )
+
+            fig.update_layout(
+                template="plotly_dark",
+                paper_bgcolor="#131722",
+                plot_bgcolor="#1e222d",
+                margin=dict(l=10, r=10, t=30, b=10),
+                hovermode="x unified",
+                xaxis=dict(
+                    title="Date",
+                    showgrid=True,
+                    gridcolor="rgba(255,255,255,0.06)",
+                    rangeslider=dict(visible=True),
+                    rangeselector=None,
+                ),
+                yaxis=dict(
+                    title="Close Price ($)",
+                    showgrid=True,
+                    gridcolor="rgba(255,255,255,0.06)",
+                    tickprefix="$",
+                ),
+                title=dict(
+                    text=f"{ticker} Close Price  <span style='color:{pct_color}; font-size:12px;'>({pct_change:+.2f}%)</span>",
+                    x=0.01,
+                    xanchor="left",
+                    font=dict(size=16, color="#d1d4dc"),
+                ),
+                showlegend=False,
+            )
+
+            return fig
+            
 
     # 6. Risk-Return Scatter Plot
     with ui.card(full_screen=True):
