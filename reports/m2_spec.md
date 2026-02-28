@@ -38,7 +38,7 @@
 | `render_stock_price_chart`| Output | `@render_plotly`| `get_filtered_close`, `ticker`| #2 |
 
 ---
-
+ 
 ## 2.3 Reactivity Diagram
 
 ```mermaid
