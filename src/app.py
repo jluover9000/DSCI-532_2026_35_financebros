@@ -4,6 +4,7 @@ Finviz-inspired design with 8 visualization components.
 """
 
 from pathlib import Path
+from tkinter import Scrollbar
 
 import pandas as pd
 import numpy as np
@@ -37,12 +38,6 @@ ui.page_opts(title="Magnificent 7 Stock Explorer", fillable=True)
 # Sidebar - Stock dropdown and date range
 # -----------------------------------------------------------------------------
 with ui.sidebar():
-    ui.input_selectize(
-        "ticker",
-        "Select Stock",
-        choices=stocks,
-        selected="AAPL",
-    )
     ui.input_date_range(
         "dates",
         "Select Date Range",
@@ -53,7 +48,15 @@ with ui.sidebar():
         format="yyyy-mm-dd",
         separator=" - ",
     )
-    ui.input_select(
+
+    ui.input_selectize(
+        "ticker",
+        "Select Stock",
+        choices=stocks,
+        selected="AAPL",
+    )
+
+    ui.input_selectize(
         "rr_period",
         "Risk/Return Window",
         choices=["Full", "1Y", "5Y", "10Y"],
@@ -93,6 +96,7 @@ def get_selected_stock_series():
         return pd.Series(dtype=float)
     return df.set_index("Date")[ticker]
 
+
 RR_TICKERS = [c for c in close_df.columns if c != "Date"]
 
 
@@ -117,8 +121,7 @@ def analysis_close():
     """
     d0, d1 = input.dates()
     df = close_df[
-        (close_df["Date"] >= pd.Timestamp(d0))
-        & (close_df["Date"] <= pd.Timestamp(d1))
+        (close_df["Date"] >= pd.Timestamp(d0)) & (close_df["Date"] <= pd.Timestamp(d1))
     ].copy()
     df = df.sort_values("Date")
 
@@ -163,6 +166,7 @@ def risk_return_df():
 
     return out.reset_index(drop=True)
 
+
 # -----------------------------------------------------------------------------
 # Layout - 3-column grid matching sketch.png
 # Row 1: 1 (Current Price), 2 (Stock Chart), 6 (Risk-Return)
@@ -200,7 +204,7 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             """
             pass
             return go.Figure()
-    
+
     # 6. Risk-Return Scatter Plot
     with ui.card(full_screen=True):
         ui.card_header("6. Risk-Return Scatter")
@@ -244,11 +248,17 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
                 fig = go.Figure()
                 fig.update_layout(
                     **LAYOUT_BASE,
-                    annotations=[dict(
-                        text="No data in selected range",
-                        x=0.5, y=0.5, xref="paper", yref="paper",
-                        showarrow=False, font=dict(size=16),
-                    )],
+                    annotations=[
+                        dict(
+                            text="No data in selected range",
+                            x=0.5,
+                            y=0.5,
+                            xref="paper",
+                            yref="paper",
+                            showarrow=False,
+                            font=dict(size=16),
+                        )
+                    ],
                 )
                 return fig
 
@@ -265,14 +275,14 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             y_range = Y_MAX - Y_MIN
 
             offsets = {
-                "top":          ( 0.00,  0.035),
-                "bottom":       ( 0.00, -0.035),
-                "right":        ( 0.05,  0.00),
-                "left":         (-0.05,  0.00),
-                "top-right":    ( 0.04,  0.030),
-                "top-left":     (-0.04,  0.030),
-                "bottom-right": ( 0.04, -0.030),
-                "bottom-left":  (-0.04, -0.030),
+                "top": (0.00, 0.035),
+                "bottom": (0.00, -0.035),
+                "right": (0.05, 0.00),
+                "left": (-0.05, 0.00),
+                "top-right": (0.04, 0.030),
+                "top-left": (-0.04, 0.030),
+                "bottom-right": (0.04, -0.030),
+                "bottom-left": (-0.04, -0.030),
             }
 
             def pick_offset(idx):
@@ -282,11 +292,18 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
                 best, best_dist = (0.00, 0.035), -1
                 for dx, dy in offsets.values():
                     lx, ly = xi + dx, yi + dy
-                    min_d = min(
-                        ((lx - (rr.at[j, "AnnVol"] - X_MIN) / x_range) ** 2 +
-                        (ly - (rr.at[j, "AnnReturn"] - Y_MIN) / y_range) ** 2) ** 0.5
-                        for j in neighbours
-                    ) if neighbours else 1.0
+                    min_d = (
+                        min(
+                            (
+                                (lx - (rr.at[j, "AnnVol"] - X_MIN) / x_range) ** 2
+                                + (ly - (rr.at[j, "AnnReturn"] - Y_MIN) / y_range) ** 2
+                            )
+                            ** 0.5
+                            for j in neighbours
+                        )
+                        if neighbours
+                        else 1.0
+                    )
                     if min_d > best_dist:
                         best_dist = min_d
                         best = (dx, dy)
@@ -296,50 +313,64 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             for i in rr.index:
                 dx, dy = pick_offset(i)
                 is_selected = rr.at[i, "Ticker"] == hi
-                annotations.append(dict(
-                    x=rr.at[i, "AnnVol"] + dx * x_range,
-                    y=rr.at[i, "AnnReturn"] + dy * y_range,
-                    text=rr.at[i, "Ticker"],
-                    showarrow=False,
-                    font=dict(
-                        size=13 if is_selected else 11,
-                        color="white" if is_selected else "#aaaaaa",
-                    ),
-                    xanchor="center",
-                    yanchor="middle",
-                ))
+                annotations.append(
+                    dict(
+                        x=rr.at[i, "AnnVol"] + dx * x_range,
+                        y=rr.at[i, "AnnReturn"] + dy * y_range,
+                        text=rr.at[i, "Ticker"],
+                        showarrow=False,
+                        font=dict(
+                            size=13 if is_selected else 11,
+                            color="white" if is_selected else "#aaaaaa",
+                        ),
+                        xanchor="center",
+                        yanchor="middle",
+                    )
+                )
 
             others = rr[rr["Ticker"] != hi]
             selected = rr[rr["Ticker"] == hi]
 
             fig = go.Figure()
 
-            fig.add_trace(go.Scatter(
-                x=others["AnnVol"],
-                y=others["AnnReturn"],
-                mode="markers",           # ← markers only, NO text mode
-                marker=dict(size=12, opacity=0.65),
-                hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
-                customdata=others["Ticker"],
-                showlegend=False,
-            ))
+            fig.add_trace(
+                go.Scatter(
+                    x=others["AnnVol"],
+                    y=others["AnnReturn"],
+                    mode="markers",  # ← markers only, NO text mode
+                    marker=dict(size=12, opacity=0.65),
+                    hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
+                    customdata=others["Ticker"],
+                    showlegend=False,
+                )
+            )
 
             if not selected.empty:
-                fig.add_trace(go.Scatter(
-                    x=selected["AnnVol"],
-                    y=selected["AnnReturn"],
-                    mode="markers",       # ← markers only, NO text mode
-                    marker=dict(size=18, opacity=1.0, line=dict(width=2, color="white")),
-                    hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
-                    customdata=selected["Ticker"],
-                    showlegend=False,
-                ))
+                fig.add_trace(
+                    go.Scatter(
+                        x=selected["AnnVol"],
+                        y=selected["AnnReturn"],
+                        mode="markers",  # ← markers only, NO text mode
+                        marker=dict(
+                            size=18, opacity=1.0, line=dict(width=2, color="white")
+                        ),
+                        hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
+                        customdata=selected["Ticker"],
+                        showlegend=False,
+                    )
+                )
 
-            fig.update_layout(**LAYOUT_BASE, annotations=annotations)
             fig.update_xaxes(range=[X_MIN, X_MAX], autorange=False)
             fig.update_yaxes(range=[Y_MIN, Y_MAX], autorange=False)
-
+            fig.update_layout(
+                template="plotly_dark",
+                yaxis_title="Annualized Return",
+                xaxis_title="Annualized Volatility",
+                margin=dict(l=10, r=10, t=10, b=10),
+                annotations=annotations,
+            )
             return fig
+
 
 with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 
@@ -545,43 +576,19 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 
     # 5. Stock Metrics Table
-    with ui.card(full_screen=True, style="width: 100%; min-height: 360px;"):
+    with ui.card(full_screen=True):
         ui.card_header("5. Stock Metrics Table")
 
-        with ui.layout_columns(col_widths=[7, 5]):
-            ui.input_select(
-                "metrics_sort_by",
-                "Sort by",
-                choices={
-                    "Market Cap": "MarketCap",
-                    "P/E Ratio": "P/E Ratio",
-                    "Dividend Yield": "DividendYield",
-                    "Revenue Growth": "Revenue Growth",
-                },
-                selected="MarketCap",
-            )
-            ui.input_radio_buttons(
-                "metrics_sort_dir",
-                "Order",
-                choices={"desc": "Descending", "asc": "Ascending"},
-                selected="desc",
-                inline=True,
-            )
-
-        @render.data_frame
-        def render_stock_metrics_table():
-            df = metric_df.copy()
+        def format_metrics_df(df, sort_by_column):
+            df = df.copy()
 
             if "Unnamed: 0" in df.columns:
                 df = df.drop(columns=["Unnamed: 0"])
 
-            sort_key = input.metrics_sort_by()
-            ascending = (input.metrics_sort_dir() == "asc")
-
             # Sort BEFORE formatting, on numeric values directly
-            if sort_key in df.columns:
-                df[sort_key] = pd.to_numeric(df[sort_key], errors="coerce")
-                df = df.sort_values(sort_key, ascending=ascending, na_position="last")
+            if sort_by_column in df.columns:
+                df[sort_by_column] = pd.to_numeric(df[sort_by_column], errors="coerce")
+                df = df.sort_values(sort_by_column, ascending=False, na_position="last")
 
             df = df.reset_index(drop=True)
 
@@ -596,19 +603,70 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 
             if "DividendYield" in df.columns:
                 dy = pd.to_numeric(df["DividendYield"], errors="coerce") * 100
-                df["DividendYield"] = dy.map(lambda x: "" if pd.isna(x) else f"{x:.2f}%")
+                df["DividendYield"] = dy.map(
+                    lambda x: "" if pd.isna(x) else f"{x:.2f}%"
+                )
 
             if "Revenue Growth" in df.columns:
                 rg = pd.to_numeric(df["Revenue Growth"], errors="coerce") * 100
-                df["Revenue Growth"] = rg.map(lambda x: "" if pd.isna(x) else f"{x:.2f}%")
+                df["Revenue Growth"] = rg.map(
+                    lambda x: "" if pd.isna(x) else f"{x:.2f}%"
+                )
 
-            return render.DataGrid(
-                df,
-                width="100%",
-                height="100%",
-                filters=False,
-                selection_mode="rows",
-            )
+            return df
+
+        with ui.navset_tab():
+            with ui.nav_panel("Market Cap"):
+
+                @render.data_frame
+                def render_metrics_market_cap():
+                    df = format_metrics_df(metric_df, "MarketCap")
+                    return render.DataGrid(
+                        df,
+                        width="100%",
+                        height="100%",
+                        filters=False,
+                        selection_mode="rows",
+                    )
+
+            with ui.nav_panel("P/E Ratio"):
+
+                @render.data_frame
+                def render_metrics_pe():
+                    df = format_metrics_df(metric_df, "P/E Ratio")
+                    return render.DataGrid(
+                        df,
+                        width="100%",
+                        height="100%",
+                        filters=False,
+                        selection_mode="rows",
+                    )
+
+            with ui.nav_panel("Dividend Yield"):
+
+                @render.data_frame
+                def render_metrics_dividend():
+                    df = format_metrics_df(metric_df, "DividendYield")
+                    return render.DataGrid(
+                        df,
+                        width="100%",
+                        height="100%",
+                        filters=False,
+                        selection_mode="rows",
+                    )
+
+            with ui.nav_panel("Revenue Growth"):
+
+                @render.data_frame
+                def render_metrics_revenue():
+                    df = format_metrics_df(metric_df, "Revenue Growth")
+                    return render.DataGrid(
+                        df,
+                        width="100%",
+                        height="100%",
+                        filters=False,
+                        selection_mode="rows",
+                    )
 
     # 8. Watchlist Display
     with ui.card():
@@ -685,4 +743,4 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 # -----------------------------------------------------------------------------
 # Apply finviz-inspired styles
 # -----------------------------------------------------------------------------
-# ui.include_css(Path(__file__).parent / "styles.css")
+ui.include_css(Path(__file__).parent / "styles.css")
