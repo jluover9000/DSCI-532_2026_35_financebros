@@ -592,15 +592,15 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 
             if "P/E Ratio" in df.columns:
                 pe = pd.to_numeric(df["P/E Ratio"], errors="coerce")
-                df["P/E Ratio"] = pe.map(lambda x: "" if pd.isna(x) else f"{x:.3f}")
+                df["P/E Ratio"] = pe.map(lambda x: "" if pd.isna(x) else f"{x:.2f}")
 
             if "DividendYield" in df.columns:
                 dy = pd.to_numeric(df["DividendYield"], errors="coerce") * 100
-                df["DividendYield"] = dy.map(lambda x: "" if pd.isna(x) else f"{x:.3f}%")
+                df["DividendYield"] = dy.map(lambda x: "" if pd.isna(x) else f"{x:.2f}%")
 
             if "Revenue Growth" in df.columns:
                 rg = pd.to_numeric(df["Revenue Growth"], errors="coerce") * 100
-                df["Revenue Growth"] = rg.map(lambda x: "" if pd.isna(x) else f"{x:.3f}%")
+                df["Revenue Growth"] = rg.map(lambda x: "" if pd.isna(x) else f"{x:.2f}%")
 
             return render.DataGrid(
                 df,
