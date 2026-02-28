@@ -200,7 +200,7 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             """
             pass
             return go.Figure()
-
+    
     # 6. Risk-Return Scatter Plot
     with ui.card(full_screen=True):
         ui.card_header("6. Risk-Return Scatter")
@@ -213,100 +213,11 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
             X_MIN, X_MAX = 0.0, 1.0
             Y_MIN, Y_MAX = -0.10, 1.0
 
-            # Empty data: still show % axes (fixed ranges)
-            if rr is None or rr.empty:
-                fig = go.Figure()
-                fig.update_layout(
-                    template="plotly_dark",
-                    height=520,
-                    margin=dict(l=10, r=10, t=10, b=10),
-                    xaxis_title="Annualized Volatility",
-                    yaxis_title="Annualized Return",
-                    xaxis=dict(
-                        range=[X_MIN, X_MAX],
-                        tickformat=".0%",
-                        autorange=False,
-                        fixedrange=True,
-                        tickmode="linear",
-                        tick0=0,
-                        dtick=0.2,
-                        constrain="domain",
-                    ),
-                    yaxis=dict(
-                        range=[Y_MIN, Y_MAX],
-                        tickformat=".0%",
-                        autorange=False,
-                        fixedrange=True,
-                        tickmode="linear",
-                        tick0=-0.1,
-                        dtick=0.2,
-                        constrain="domain",
-                    ),
-                    annotations=[
-                        dict(
-                            text="No data in selected range",
-                            x=0.5,
-                            y=0.5,
-                            xref="paper",
-                            yref="paper",
-                            showarrow=False,
-                            font=dict(size=16),
-                        )
-                    ],
-                )
-                return fig
-
-            # Ensure numeric + drop bad rows
-            rr = rr.copy()
-            rr["AnnVol"] = pd.to_numeric(rr["AnnVol"], errors="coerce")
-            rr["AnnReturn"] = pd.to_numeric(rr["AnnReturn"], errors="coerce")
-            rr = rr.dropna(subset=["Ticker", "AnnVol", "AnnReturn"])
-
-            # Clamp data to fixed axis bounds so Plotly never auto-expands
-            others = rr[rr["Ticker"] != hi].copy()
-            others["AnnVol"] = others["AnnVol"].clip(X_MIN, X_MAX)
-            others["AnnReturn"] = others["AnnReturn"].clip(Y_MIN, Y_MAX)
-
-            selected = rr[rr["Ticker"] == hi].copy()
-            selected["AnnVol"] = selected["AnnVol"].clip(X_MIN, X_MAX)
-            selected["AnnReturn"] = selected["AnnReturn"].clip(Y_MIN, Y_MAX)
-
-            fig = go.Figure()
-
-            # Other tickers
-            fig.add_trace(
-                go.Scatter(
-                    x=others["AnnVol"],
-                    y=others["AnnReturn"],
-                    mode="markers+text",
-                    text=others["Ticker"],
-                    textposition="top center",
-                    marker=dict(size=12, opacity=0.65),
-                    hovertemplate="Ticker=%{text}<br>Vol=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
-                    showlegend=False,
-                )
-            )
-
-            # Selected ticker (highlight)
-            if not selected.empty:
-                fig.add_trace(
-                    go.Scatter(
-                        x=selected["AnnVol"],
-                        y=selected["AnnReturn"],
-                        mode="markers+text",
-                        text=selected["Ticker"],
-                        textposition="top center",
-                        marker=dict(size=18, opacity=1.0, line=dict(width=2, color="white")),
-                        hovertemplate="Ticker=%{text}<br>Vol=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
-                        showlegend=False,
-                    )
-                )
-
-            fig.update_layout(
+            LAYOUT_BASE = dict(
                 template="plotly_dark",
                 height=520,
-                margin=dict(l=10, r=10, t=10, b=10),
-                uirevision="rr_fixed_axes",
+                autosize=True,
+                margin=dict(l=60, r=30, t=20, b=60),
                 xaxis_title="Annualized Volatility",
                 yaxis_title="Annualized Return",
                 xaxis=dict(
@@ -317,7 +228,6 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
                     tickmode="linear",
                     tick0=0,
                     dtick=0.2,
-                    constrain="domain",
                 ),
                 yaxis=dict(
                     range=[Y_MIN, Y_MAX],
@@ -327,9 +237,108 @@ with ui.layout_columns(col_widths={"sm": (4, 4, 4)}, row_heights="auto"):
                     tickmode="linear",
                     tick0=-0.1,
                     dtick=0.2,
-                    constrain="domain",
                 ),
             )
+
+            if rr is None or rr.empty:
+                fig = go.Figure()
+                fig.update_layout(
+                    **LAYOUT_BASE,
+                    annotations=[dict(
+                        text="No data in selected range",
+                        x=0.5, y=0.5, xref="paper", yref="paper",
+                        showarrow=False, font=dict(size=16),
+                    )],
+                )
+                return fig
+
+            rr = rr.copy()
+            rr["AnnVol"] = pd.to_numeric(rr["AnnVol"], errors="coerce")
+            rr["AnnReturn"] = pd.to_numeric(rr["AnnReturn"], errors="coerce")
+            rr = rr.dropna(subset=["Ticker", "AnnVol", "AnnReturn"])
+            rr["AnnVol"] = rr["AnnVol"].clip(X_MIN, X_MAX)
+            rr["AnnReturn"] = rr["AnnReturn"].clip(Y_MIN, Y_MAX)
+            rr = rr.reset_index(drop=True)
+
+            # ── Smart label placement via annotations ─────────────────────────────
+            x_range = X_MAX - X_MIN
+            y_range = Y_MAX - Y_MIN
+
+            offsets = {
+                "top":          ( 0.00,  0.035),
+                "bottom":       ( 0.00, -0.035),
+                "right":        ( 0.05,  0.00),
+                "left":         (-0.05,  0.00),
+                "top-right":    ( 0.04,  0.030),
+                "top-left":     (-0.04,  0.030),
+                "bottom-right": ( 0.04, -0.030),
+                "bottom-left":  (-0.04, -0.030),
+            }
+
+            def pick_offset(idx):
+                xi = (rr.at[idx, "AnnVol"] - X_MIN) / x_range
+                yi = (rr.at[idx, "AnnReturn"] - Y_MIN) / y_range
+                neighbours = [j for j in rr.index if j != idx]
+                best, best_dist = (0.00, 0.035), -1
+                for dx, dy in offsets.values():
+                    lx, ly = xi + dx, yi + dy
+                    min_d = min(
+                        ((lx - (rr.at[j, "AnnVol"] - X_MIN) / x_range) ** 2 +
+                        (ly - (rr.at[j, "AnnReturn"] - Y_MIN) / y_range) ** 2) ** 0.5
+                        for j in neighbours
+                    ) if neighbours else 1.0
+                    if min_d > best_dist:
+                        best_dist = min_d
+                        best = (dx, dy)
+                return best
+
+            annotations = []
+            for i in rr.index:
+                dx, dy = pick_offset(i)
+                is_selected = rr.at[i, "Ticker"] == hi
+                annotations.append(dict(
+                    x=rr.at[i, "AnnVol"] + dx * x_range,
+                    y=rr.at[i, "AnnReturn"] + dy * y_range,
+                    text=rr.at[i, "Ticker"],
+                    showarrow=False,
+                    font=dict(
+                        size=13 if is_selected else 11,
+                        color="white" if is_selected else "#aaaaaa",
+                    ),
+                    xanchor="center",
+                    yanchor="middle",
+                ))
+
+            others = rr[rr["Ticker"] != hi]
+            selected = rr[rr["Ticker"] == hi]
+
+            fig = go.Figure()
+
+            fig.add_trace(go.Scatter(
+                x=others["AnnVol"],
+                y=others["AnnReturn"],
+                mode="markers",           # ← markers only, NO text mode
+                marker=dict(size=12, opacity=0.65),
+                hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
+                customdata=others["Ticker"],
+                showlegend=False,
+            ))
+
+            if not selected.empty:
+                fig.add_trace(go.Scatter(
+                    x=selected["AnnVol"],
+                    y=selected["AnnReturn"],
+                    mode="markers",       # ← markers only, NO text mode
+                    marker=dict(size=18, opacity=1.0, line=dict(width=2, color="white")),
+                    hovertemplate="Ticker=%{customdata}<br>Volatility=%{x:.2%}<br>Return=%{y:.2%}<extra></extra>",
+                    customdata=selected["Ticker"],
+                    showlegend=False,
+                ))
+
+            fig.update_layout(**LAYOUT_BASE, annotations=annotations)
+            fig.update_xaxes(range=[X_MIN, X_MAX], autorange=False)
+            fig.update_yaxes(range=[Y_MIN, Y_MAX], autorange=False)
+
             return fig
 
 with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
@@ -536,7 +545,7 @@ with ui.layout_columns(col_widths={"sm": (5, 5, 2)}, row_heights="auto"):
 with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
 
     # 5. Stock Metrics Table
-    with ui.card(style="width: 100%; height: 360px;"):
+    with ui.card(full_screen=True, style="width: 100%; min-height: 360px;"):
         ui.card_header("5. Stock Metrics Table")
 
         with ui.layout_columns(col_widths=[7, 5]):
@@ -554,7 +563,7 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
             ui.input_radio_buttons(
                 "metrics_sort_dir",
                 "Order",
-                choices={"desc": "Desc", "asc": "Asc"},
+                choices={"desc": "Descending", "asc": "Ascending"},
                 selected="desc",
                 inline=True,
             )
@@ -569,18 +578,14 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
             sort_key = input.metrics_sort_by()
             ascending = (input.metrics_sort_dir() == "asc")
 
-            sort_df = df.copy()
-            for col in ["MarketCap", "P/E Ratio", "DividendYield", "Revenue Growth"]:
-                if col in sort_df.columns:
-                    sort_df[col] = pd.to_numeric(sort_df[col], errors="coerce")
-
-            if sort_key in sort_df.columns:
-                df["_sort_"] = sort_df[sort_key]
-                df = df.sort_values("_sort_", ascending=ascending, na_position="last").drop(columns=["_sort_"])
+            # Sort BEFORE formatting, on numeric values directly
+            if sort_key in df.columns:
+                df[sort_key] = pd.to_numeric(df[sort_key], errors="coerce")
+                df = df.sort_values(sort_key, ascending=ascending, na_position="last")
 
             df = df.reset_index(drop=True)
 
-            # formatting for display
+            # Format AFTER sorting
             if "MarketCap" in df.columns:
                 mc = pd.to_numeric(df["MarketCap"], errors="coerce") / 1_000_000_000
                 df["MarketCap"] = mc.map(lambda x: "" if pd.isna(x) else f"{x:,.2f}B")
@@ -600,7 +605,8 @@ with ui.layout_columns(col_widths={"sm": (10, 2)}, row_heights="auto"):
             return render.DataGrid(
                 df,
                 width="100%",
-                height="260px",
+                height="100%",
+                filters=False,
                 selection_mode="rows",
             )
 
