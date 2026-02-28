@@ -164,3 +164,50 @@ label {
   font-variant-numeric: tabular-nums !important;
 }
 
+/*Boxes styling */
+.tickerstrip {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.5rem;
+  width: 100%;
+}
+
+.tickerbox {
+  background: #1e222d;
+  border: 1px solid #2a2e39;
+  border-radius: 12px;
+  padding: 0.55rem 0.6rem;
+  min-width: 0;
+}
+
+.tickerbox-ticker {
+  font-weight: 700;
+  font-size: 0.9rem;
+  color: #d1d4dc;
+  letter-spacing: 0.02em;
+}
+
+.tickerbox-price {
+  margin-top: 0.1rem;
+  font-weight: 700;
+  font-size: 1.0rem;
+  color: #ffffff;
+}
+
+.tickerbox-ret {
+  margin-top: 0.15rem;
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+
+.ret-pos { color: #44bb70; }
+.ret-neg { color: #d62728; }
+.ret-flat { color: #9aa0a6; }
+
+@media (max-width: 900px) {
+  .tickerstrip {
+    grid-template-columns: repeat(7, minmax(140px, 1fr));
+    overflow-x: auto;
+    padding-bottom: 0.25rem;
+  }
+}
